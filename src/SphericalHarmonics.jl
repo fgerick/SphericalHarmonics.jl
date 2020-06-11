@@ -5,7 +5,8 @@ using LinearAlgebra, Reexport, HDF5
 @reexport using TypedPolynomials
 
 include("sphericalHarmonic.jl")
-export ylm, rlm
+export ylm, rlm,Rlm,Ylm
+export YLMNorm, Laplace, Schmidt, Nonorm
 
 include("sphericalHarmonicsExpansion.jl")
 export sphericalHarmonicsExpansion, SphericalHarmonicCoefficients, solidHarmonicsExpansion,

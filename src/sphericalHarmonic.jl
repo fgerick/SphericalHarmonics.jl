@@ -1,10 +1,13 @@
 #normalization factor
-abstract type YLMNorm end
+abstract type YLMNorm{T} end
 
-struct Schmidt{T} <: YLMNorm
+struct Schmidt{T} <: YLMNorm{T}
 end
 
-struct Laplace{T} <: YLMNorm
+struct Laplace{T} <: YLMNorm{T}
+end
+
+struct Nonorm{T} <: YLMNorm{T}
 end
 
 struct Ylm{T}; end
@@ -29,6 +32,10 @@ function ylmKCoefficient(N::Laplace{T}, l::Int64, m::Int64) where T
 
   return sqrt((2*l+1) / (4*T(pi)*k))
 end
+function ylmKCoefficient(N::Nonorm{T}, l::Int64, m::Int64) where T
+ return one(T)
+end
+
 
 
 function ylmCosSinPolynomial(m::Int64, x::Variable, y::Variable)
@@ -73,9 +80,17 @@ function Ylm{T}(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm:
   end
 
   if m > 0
-    return sqrt(2one(T))*ylmKCoefficient(norm, l, m)*ylmCosSinPolynomial(m,x,y)*p
+	  out=ylmKCoefficient(norm, l, m)*ylmCosSinPolynomial(m,x,y)*p
+	  if norm!=Nonorm{T}()
+		  out*=sqrt(2one(T))
+	  end
+    return out
   elseif m < 0
-    return sqrt(2one(T))*ylmKCoefficient(norm, l, abs(m))*ylmSinSinPolynomial(abs(m),x,y)*p
+	  out=ylmKCoefficient(norm, l, abs(m))*ylmSinSinPolynomial(abs(m),x,y)*p
+	  if norm!=Nonorm{T}()
+		  out*=sqrt(2one(T))
+	  end
+    return out
   else
     return ylmKCoefficient(norm, l, 0)*p
   end
@@ -98,7 +113,9 @@ end
 # solid harmonics
 function Rlm{T}(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm=Laplace{T}()) where T
 	rlm = Rlylm{T}(l,m,x,y,z; norm=norm)
-	rlm = sqrt(4one(T)*T(pi)/(2*l+1))*rlm
+	if norm!=Nonorm{T}()
+		rlm = sqrt(4one(T)*T(pi)/(2*l+1))*rlm
+	end
 	return rlm
 end
 
