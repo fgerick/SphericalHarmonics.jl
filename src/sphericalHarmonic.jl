@@ -10,10 +10,6 @@ end
 struct Nonorm{T} <: YLMNorm{T}
 end
 
-struct Ylm{T}; end
-struct Rlm{T}; end
-struct Rlylm{T}; end
-
 function ylmKCoefficient(N::Schmidt{T},l::Int64, m::Int64) where T
 
 	k = one(T)
@@ -66,7 +62,7 @@ end
 
 *Output:*  Spherical harmonic polynomial
 """
-function Ylm{T}(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm=Laplace{T}()) where T
+function ylm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
 
   if abs(m) > l
     throw(DomainError(m,"-l <= m <= l expected, but m = $m and l = $l."))
@@ -97,8 +93,8 @@ function Ylm{T}(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm:
 end
 
 # multiplying r^l*ylm(x,y,z)
-function Rlylm{T}(l::Int64, m::Int, x::Variable, y::Variable, z::Variable; kwargs...) where T
-	p = Ylm{T}(l,m,x,y,z;kwargs...)
+function rlylm(l::Int64, m::Int, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
+	p = ylm(l,m,x,y,z;norm=norm)
 	tout = []
 	# Zerlegung des Polynoms in Terme:
 	for t in terms(p)
@@ -111,12 +107,10 @@ function Rlylm{T}(l::Int64, m::Int, x::Variable, y::Variable, z::Variable; kwarg
 end
 
 # solid harmonics
-function Rlm{T}(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm=Laplace{T}()) where T
-	rlm = Rlylm{T}(l,m,x,y,z; norm=norm)
+function rlm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
+	rlm = rlylm(l,m,x,y,z; norm=norm)
 	if norm!=Nonorm{T}()
 		rlm = sqrt(4one(T)*T(pi)/(2*l+1))*rlm
 	end
 	return rlm
 end
-
-rlm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm=Laplace{Float64}()) = Rlm{Float64}(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm=norm)
