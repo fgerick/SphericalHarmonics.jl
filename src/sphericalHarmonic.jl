@@ -28,6 +28,7 @@ function ylmKCoefficient(N::Laplace{T}, l::Int64, m::Int64) where T
 
   return sqrt((2*l+1) / (4*T(pi)*k))
 end
+
 function ylmKCoefficient(N::Nonorm{T}, l::Int64, m::Int64) where T
  return one(T)
 end
@@ -76,15 +77,15 @@ function ylm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YL
   end
 
   if m > 0
-	  out=ylmKCoefficient(norm, l, m)*ylmCosSinPolynomial(m,x,y)*p
-	  if norm!=Nonorm{T}()
-		  out*=sqrt(2one(T))
+	  out = ylmKCoefficient(norm, l, m)*ylmCosSinPolynomial(m,x,y)*p
+	  if norm != Nonorm{T}()
+		  out *= sqrt(2one(T))
 	  end
     return out
   elseif m < 0
-	  out=ylmKCoefficient(norm, l, abs(m))*ylmSinSinPolynomial(abs(m),x,y)*p
-	  if norm!=Nonorm{T}()
-		  out*=sqrt(2one(T))
+	  out = ylmKCoefficient(norm, l, abs(m))*ylmSinSinPolynomial(abs(m),x,y)*p
+	  if norm != Nonorm{T}()
+		  out *= sqrt(2one(T))
 	  end
     return out
   else
@@ -100,7 +101,7 @@ function rlylm(l::Int64, m::Int, x::Variable, y::Variable, z::Variable; norm::YL
 	for t in terms(p)
 		deg = degree(monomial(t)) # Gibt den gesamten Grad des Monoms an
 		degR = l-deg # durch das Kürzen ergibt sich ein Grad von l-deg fuer r
-		push!(tout,(x^2+y^2+z^2)^Int(degR/2)*t) # r² wird durch x²+y²+z² ersetzt
+		push!(tout,(x^2+y^2+z^2)^div(degR,2)*t) # r² wird durch x²+y²+z² ersetzt
 	end
 
 	return polynomial(tout)
@@ -109,7 +110,7 @@ end
 # solid harmonics
 function rlm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
 	rlm = rlylm(l,m,x,y,z; norm=norm)
-	if norm!=Nonorm{T}()
+	if norm != Nonorm{T}()
 		rlm = sqrt(4one(T)*T(pi)/(2*l+1))*rlm
 	end
 	return rlm
