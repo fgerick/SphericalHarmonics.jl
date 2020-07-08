@@ -1,16 +1,12 @@
 #normalization factor
 abstract type YLMNorm{T} end
 
-struct Schmidt{T} <: YLMNorm{T}
-end
+struct Schmidt{T} <: YLMNorm{T}; end
+struct Laplace{T} <: YLMNorm{T}; end
+struct Nonorm{T} <: YLMNorm{T}; end
+struct Full{T} <: YLMNorm{T}; end
 
-struct Laplace{T} <: YLMNorm{T}
-end
-
-struct Nonorm{T} <: YLMNorm{T}
-end
-
-function ylmKCoefficient(N::Schmidt{T},l::Int64, m::Int64) where T
+function ylmcoeff(N::Schmidt{T},l::Int64, m::Int64) where T
 
 	k = one(T)
 	for i in (l-m+1):(l+m)
@@ -19,7 +15,7 @@ function ylmKCoefficient(N::Schmidt{T},l::Int64, m::Int64) where T
 	return sqrt(1/k)
 end
 
-function ylmKCoefficient(N::Laplace{T}, l::Int64, m::Int64) where T
+function ylmcoeff(N::Laplace{T}, l::Int64, m::Int64) where T
 
   k = one(T)
   for i in (l-m+1):(l+m)
@@ -29,29 +25,42 @@ function ylmKCoefficient(N::Laplace{T}, l::Int64, m::Int64) where T
   return sqrt((2*l+1) / (4*T(pi)*k))
 end
 
-function ylmKCoefficient(N::Nonorm{T}, l::Int64, m::Int64) where T
+function ylmcoeff(N::Full{T}, l::Int64, m::Int64) where T
+	fac = m==0 ? one(T) : sqrt(2*one(T))
+	return ylmcoeff(Laplace{T}(),l,m)*sqrt(4T(pi))*fac
+end
+
+function ylmcoeff(N::Nonorm{T}, l::Int64, m::Int64) where T
  return one(T)
 end
 
 
 
-function ylmCosSinPolynomial(m::Int64, x::Variable, y::Variable)
+function cossinpoly(m::Int64, x::Variable, y::Variable)
 
   sum = zero(x*y)
   for j in 0:div(m,2)
-    sum += ((-1)^j)*binomial(m, 2j)*(y^(2j))*(x^(m-2j))
+	  k = 2j
+    sum += ((-1)^j)*binomial(m, k)*y^k*x^(m-k)
   end
   return sum
 end
 
-function ylmSinSinPolynomial(m::Int64, x::Variable, y::Variable)
+function sinsinpoly(m::Int64, x::Variable, y::Variable)
 
   sum = zero(x*y)
   for j in 0:div((m-1),2)
-    sum += ((-1)^j)*binomial(m, 2j + 1)*(y^(2j + 1))*(x^(m-2j-1))
+	  k = 2j+1
+    sum += ((-1)^j)*binomial(m, k)*y^k*x^(m-k)
   end
   return sum
 end
+
+# #legendre polynomial:
+# P(l::BigInt,x) = differentiate((x^2 - 1)^l,x,l)
+#
+# #associated legendre polynomial (without sin(θ)^m)
+# P(l::BigInt,m::BigInt,x) = 1//(big(2)^l*factorial(l))*differentiate(P(l,x),x,m)
 
 """
     ylm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable)
@@ -63,39 +72,47 @@ end
 
 *Output:*  Spherical harmonic polynomial
 """
-function ylm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
+function ylm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable;
+			 norm::YLMNorm{T}=Laplace{Float64}(),real=true) where T
 
-  if abs(m) > l
-    throw(DomainError(m,"-l <= m <= l expected, but m = $m and l = $l."))
-  end
+	if abs(m) > l
+	throw(DomainError(m,"-l <= m <= l expected, but m = $m and l = $l."))
+	end
 
-  p = (z^2 - 1)^l
+	p = (z^2 - 1)^l
 
-  for i = 1:l+abs(m)
-    c = i <= l ? 1/(2one(T)*i) : one(T)
-    p = c*differentiate(p, z)
-  end
+	for i = 1:l+abs(m)
+	  c = i <= l ? 1/(2one(T)*i) : one(T)
+	  p = c*differentiate(p, z)
+	end
 
-  if m > 0
-	  out = ylmKCoefficient(norm, l, m)*ylmCosSinPolynomial(m,x,y)*p
-	  if norm != Nonorm{T}()
-		  out *= sqrt(2one(T))
-	  end
-    return out
-  elseif m < 0
-	  out = ylmKCoefficient(norm, l, abs(m))*ylmSinSinPolynomial(abs(m),x,y)*p
-	  if norm != Nonorm{T}()
-		  out *= sqrt(2one(T))
-	  end
-    return out
-  else
-    return ylmKCoefficient(norm, l, 0)*p
-  end
+	p *= (-1)^m
+
+	if real
+		if m > 0
+			out = ylmcoeff(norm, l, m)*cossinpoly(m,x,y)*p
+			if norm != Nonorm{T}()
+				out *= sqrt(2one(T))
+			end
+			return out
+		elseif m < 0
+			out = ylmcoeff(norm, l, abs(m))*sinsinpoly(abs(m),x,y)*p
+			if norm != Nonorm{T}()
+				out *= sqrt(2one(T))
+			end
+			return out
+		else
+			return ylmcoeff(norm, l, 0)*p
+		end
+	else
+		return ylmcoeff(norm, l, m)*(cossinpoly(m,x,y)+sign(m)*im*sinsinpoly(m,x,y))*p
+	end
 end
 
 # multiplying r^l*ylm(x,y,z)
-function rlylm(l::Int64, m::Int, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
-	p = ylm(l,m,x,y,z;norm=norm)
+function rlylm(l::Int64, m::Int, x::Variable, y::Variable, z::Variable;
+			   norm::YLMNorm{T}=Laplace{Float64}(),real=true) where T
+	p = ylm(l,m,x,y,z;norm=norm,real=real)
 	tout = []
 	# Zerlegung des Polynoms in Terme:
 	for t in terms(p)
@@ -108,8 +125,9 @@ function rlylm(l::Int64, m::Int, x::Variable, y::Variable, z::Variable; norm::YL
 end
 
 # solid harmonics
-function rlm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable; norm::YLMNorm{T}=Laplace{Float64}()) where T
-	rlm = rlylm(l,m,x,y,z; norm=norm)
+function rlm(l::Int64, m::Int64, x::Variable, y::Variable, z::Variable;
+			 norm::YLMNorm{T}=Laplace{Float64}(),real=true) where T
+	rlm = rlylm(l,m,x,y,z; norm=norm,real=real)
 	if norm != Nonorm{T}()
 		rlm = sqrt(4one(T)*T(pi)/(2*l+1))*rlm
 	end
